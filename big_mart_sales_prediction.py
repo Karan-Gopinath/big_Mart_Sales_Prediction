@@ -7,15 +7,22 @@ from sklearn import metrics
 import pickle
 
 # Load the dataset
-big_mart_data = pd.read_csv('Train.csv')
+try:
+    big_mart_data = pd.read_csv('Train.csv')
+except FileNotFoundError:
+    print("Error: 'Train.csv' not found. Please ensure the dataset is in the project directory.")
+    exit(1)
 
 # Handle missing values
-big_mart_data['Item_Weight'].fillna(big_mart_data['Item_Weight'].mean(), inplace=True)
-big_mart_data['Outlet_Size'].fillna(big_mart_data['Outlet_Size'].mode()[0], inplace=True)
+big_mart_data = big_mart_data.assign(
+    Item_Weight=big_mart_data['Item_Weight'].fillna(big_mart_data['Item_Weight'].mean()),
+    Outlet_Size=big_mart_data['Outlet_Size'].fillna(big_mart_data['Outlet_Size'].mode()[0])
+)
 
 # Replace inconsistent values in Item_Fat_Content
 big_mart_data['Item_Fat_Content'] = big_mart_data['Item_Fat_Content'].replace(
-    {'LF': 'Low Fat', 'low fat': 'Low Fat', 'reg': 'Regular'})
+    {'LF': 'Low Fat', 'low fat': 'Low Fat', 'reg': 'Regular'}
+)
 
 # Encode categorical features
 encoder = LabelEncoder()

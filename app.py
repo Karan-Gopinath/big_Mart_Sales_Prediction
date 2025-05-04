@@ -2,19 +2,42 @@ import streamlit as st
 import pandas as pd
 import pickle
 from sklearn.preprocessing import LabelEncoder
+from xgboost import XGBRegressor
 
 # Load the trained model
-with open('bigmart_model.pkl', 'rb') as file:
-    model = pickle.load(file)
+try:
+    with open('bigmart_model.pkl', 'rb') as file:
+        model = pickle.load(file)
+    if not isinstance(model, XGBRegressor):
+        st.error("Loaded model is not an XGBRegressor. Please ensure 'bigmart_model.pkl' contains a trained XGBRegressor model.")
+        st.stop()
+except FileNotFoundError:
+    st.error("Model file 'bigmart_model.pkl' not found. Please ensure it is in the project directory.")
+    st.stop()
+except Exception as e:
+    st.error(f"Error loading model: {e}")
+    st.stop()
 
 # Load the dataset for encoding references
-data = pd.read_csv('Train.csv')
+try:
+    data = pd.read_csv('Train.csv')
+except FileNotFoundError:
+    st.error("Dataset 'Train.csv' not found. Please ensure it is in the project directory.")
+    st.stop()
+except Exception as e:
+    st.error(f"Error loading dataset: {e}")
+    st.stop()
 
-# Handle missing values in dataset (for encoding consistency)
-data['Item_Weight'].fillna(data['Item_Weight'].mean(), inplace=True)
-data['Outlet_Size'].fillna(data['Outlet_Size'].mode()[0], inplace=True)
+# Handle missing values in dataset (avoid inplace=True)
+data = data.assign(
+    Item_Weight=data['Item_Weight'].fillna(data['Item_Weight'].mean()),
+    Outlet_Size=data['Outlet_Size'].fillna(data['Outlet_Size'].mode()[0])
+)
+
+# Replace inconsistent values in Item_Fat_Content
 data['Item_Fat_Content'] = data['Item_Fat_Content'].replace(
-    {'LF': 'Low Fat', 'low fat': 'Low Fat', 'reg': 'Regular'})
+    {'LF': 'Low Fat', 'low fat': 'Low Fat', 'reg': 'Regular'}
+)
 
 # Initialize LabelEncoders for categorical columns
 encoders = {}
@@ -26,7 +49,6 @@ for column in categorical_columns:
 
 # Streamlit app
 st.title("Big Mart Sales Prediction")
-
 st.write("Enter the item and outlet details to predict sales:")
 
 # Input fields
@@ -58,10 +80,17 @@ input_data = pd.DataFrame({
 })
 
 # Encode categorical features
-for column in categorical_columns:
-    input_data[column] = encoders[column].transform(input_data[column])
+try:
+    for column in categorical_columns:
+        input_data[column] = encoders[column].transform(input_data[column])
+except Exception as e:
+    st.error(f"Error encoding input data: {e}")
+    st.stop()
 
 # Predict
 if st.button("Predict Sales"):
-    prediction = model.predict(input_data)
-    st.success(f"Predicted Item Outlet Sales: ${prediction[0]:.2f}")
+    try:
+        prediction = model.predict(input_data)
+        st.success(f"Predicted Item Outlet Sales: ${prediction[0]:.2f}")
+    except Exception as e:
+        st.error(f"Error making prediction: {e}")
